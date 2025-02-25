@@ -16,8 +16,7 @@ void processI2C(String message) {
             }
         }
 
-        shutdown();
-        determineMaster();
+        reset();
     }
 }
 
@@ -104,7 +103,7 @@ void getMap(AsyncWebServerRequest *request) {
 }
 
 // Needed to switch master of the I2C
-void shutdown(){
+void reset(){
     Wire.end();
 
     if (MASTER) {
