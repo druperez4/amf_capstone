@@ -1,21 +1,34 @@
-#include <Arduino.h>
-#include <Wire.h>
-#include <WiFi.h>
-#include <ESPAsyncWebServer.h>
-#include <ArduinoJson.h>
-#include <stdio.h>
+#include "main.h"
 
-#define CONTENT_TYPE "application/json"
-
-// Boolean
-#define MASTER 1
 // I2C Address of this Arduino
 #define ADDRESS 0
 
-const char* ssid = "ESP32-Network";
-const char* password = "12345678";
 
-AsyncWebServer server(80);
+void processI2C(String message) {
+    // TODO: Decide all different message types
+
+    // Reset I2C
+    if (message.charAt(0) == 'R') {
+        // Tell all slaves to reset
+        if (MASTER) {
+            for (int i = 0; i < I2C_SLAVES; i++){
+                sendI2C(i, "R");
+            }
+        }
+
+        shutdown();
+        determineMaster();
+    }
+}
+
+void discoverI2C(){
+    for (int i = 0 ; i < I2C_SLAVES; i++){
+        Wire.requestFrom(i, 1);
+        if (Wire.available()) {
+            i2c_ids[i] = i;
+        }
+    }
+}
 
 void receiveEvent(int bytes) {
     String message;
@@ -28,10 +41,10 @@ void receiveEvent(int bytes) {
     processI2C(message);
 }
 
-void processI2C(String message) {
-    // TODO: Decide all different message types
+// Reply to check event
+void requestEvent(){
+    Wire.write(1);
 }
-
 
 void sendI2C(int address, String message){
     Wire.beginTransmission(address);
@@ -90,27 +103,52 @@ void getMap(AsyncWebServerRequest *request) {
     request->send(200, CONTENT_TYPE, response);
 }
 
-void setup() {
-    Serial.begin(115200);
+// Needed to switch master of the I2C
+void shutdown(){
+    Wire.end();
+
+    if (MASTER) {
+        WiFi.softAPdisconnect();
+    }
+
+    init();
+}
+
+void determineMaster() {
+    // Set the master boolean based on algorithm
+    MASTER = 1;
+}
+
+void init() {
+    // Find which arduino in this group is the master
+    determineMaster();
 
     if (MASTER) {
         Wire.begin();
+        WiFi.softAP(ssid, password);
+        Serial.println("Access Point Started");
+        Serial.print("IP Address: " + WiFi.softAPIP());
+
+        AsyncWebServer server(80);
+        server.on("/message", HTTP_POST, messageI2C);
+        server.on("/getMap", HTTP_GET, getMap);
+        server.onNotFound(notFound);
+        server.begin();
+        Serial.println("HTTP server started");
+
     } else {
         Wire.begin(ADDRESS);
         Wire.onReceive(receiveEvent);
+        Wire.onRequest(requestEvent);
     }
+
     Serial.println("Initialized I2C");
 
-    WiFi.softAP(ssid, password);
-    Serial.println("Access Point Started");
-    Serial.print("IP Address: " + WiFi.softAPIP());
+}
 
-    server.on("/message", HTTP_POST, messageI2C);
-    server.on("/getMap", HTTP_GET, getMap);
-    server.onNotFound(notFound);
-
-    server.begin();
-    Serial.println("HTTP server started");
+void setup() {
+    Serial.begin(9600);
+    init();
 }
 
 void loop() {
