@@ -2,10 +2,11 @@
 #include "motor.h"
 #include "server_functions.h"
 #include "I2C.h"
+#include "hotspot.h"
 
 const char* ssid = "ESP32-Network";
 const char* password = "12345678";
-boolean MASTER = 1;
+boolean MASTER = 0;
 
 
 // void determineMaster() {
@@ -14,37 +15,23 @@ boolean MASTER = 1;
 // }
 
 void start_amf() {
+    Serial.println("Starting AMF!");
+
     // Find which arduino in this group is the master
     // determineMaster();
-
-    if (MASTER) {
-        Wire.setPins(I2C_SDA, I2C_SCL);
-        Wire.begin();
-        Serial.printf("started I2C as master %d\n", ADDRESS);
-
-        WiFi.mode(WIFI_AP);
-        WiFi.softAP(ssid, password);
-        Serial.println("Access Point Started");
-        Serial.print("IP Address: ");
-        Serial.println(WiFi.softAPIP());
-
-        setup_server();
-    } else {
-        Wire.setPins(I2C_SDA, I2C_SCL);
-        Wire.begin(ADDRESS);
-        Wire.onReceive(receiveEvent);
-        Wire.onRequest(requestEvent);
-        Serial.print("started I2C as slave ");
-        Serial.println(ADDRESS);
-    }
+    setupI2C();
+    setupWiFi();
+    setup_server();
 }
 
 void reset(){
-    Wire.end();
+    Serial.println("Resetting!");
 
-    if (MASTER) {
-        WiFi.softAPdisconnect();
-    }
+    endI2C();
+    endWiFi();
+
+    delay(100);
+    MASTER = !MASTER;
 
     start_amf();
 }
@@ -58,5 +45,8 @@ void setup() {
 }
   
 void loop() {
+    // Motor constantly checks it is the correct height
     motor_loop();
+
+    processI2CQueue();
 }

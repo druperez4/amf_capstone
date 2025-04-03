@@ -11,7 +11,7 @@
 #define I2C_SLAVES 16
 #define I2C_SDA 27
 #define I2C_SCL 26
-#define ADDRESS 0
+#define ADDRESS 1
 
 #define LED 33
 
