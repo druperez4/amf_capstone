@@ -4,9 +4,9 @@
 #include "I2C.h"
 #include "hotspot.h"
 
-const char* ssid = "ESP32-Network";
+const char* ssid = "Juan";
 const char* password = "12345678";
-boolean MASTER = 0;
+boolean MASTER = 1;
 
 
 // void determineMaster() {

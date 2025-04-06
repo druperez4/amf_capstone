@@ -6,7 +6,8 @@ AsyncWebServer server(80);
 void setup_server() {
     server.on("/message", HTTP_POST, messageI2C);
     server.on("/getMap", HTTP_GET, getMap);
-    server.on("/setHeight", HTTP_POST, setHeight);
+    server.on("/getID", HTTP_GET, getID);
+    server.on("/setHeight", HTTP_GET, setHeight);
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
         request->send(200, "text/html", "<h1>Hello from ESP32 SoftAP!</h1>");
       });        
@@ -23,9 +24,9 @@ void notFound(AsyncWebServerRequest *request) {
 }
 
 void setHeight(AsyncWebServerRequest *request) {
-    if (request->hasParam("height", true) && request->hasParam("module", true)) {
-      float height = request->getParam("height", true)->value().toFloat();
-      int module = request->getParam("module", true)->value().toInt();
+    if (request->hasParam("height") && request->hasParam("module")) {
+      float height = request->getParam("height")->value().toFloat();
+      int module = request->getParam("module")->value().toInt();
 
       String message = "H";
       deliver_message(module, message + height);
@@ -66,6 +67,18 @@ void messageI2C(AsyncWebServerRequest *request) {
 void getMap(AsyncWebServerRequest *request) {
     JsonDocument res;
     String response;
+
+    // TODO: Add JSON representation of AMF mapping
+    serializeJson(res, response);
+
+    request->send(200, CONTENT_TYPE, response);
+}
+
+void getID(AsyncWebServerRequest *request) {
+    JsonDocument res;
+    String response;
+
+    res.add(ADDRESS);
 
     // TODO: Add JSON representation of AMF mapping
     serializeJson(res, response);
