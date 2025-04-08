@@ -16,18 +16,24 @@ const char* password = "12345678";
 // Create an HTTP server on port 80
 AsyncWebServer server(80);
 
-#define I2C_DEV_ADDR 0x04
+#define I2C_DEV_ADDR 0x02
 
 #define NORTH_PIN 16
 #define EAST_PIN 4
 #define WEST_PIN 2
 #define SOUTH_PIN 15
 
-#define IS_MASTER_PIN 34
 #define STATUS_LED_PIN 2
 
-#define DIRECTION_PIN 26
-#define STEP_PIN 25
+#define MOTOR_EN_PIN 13
+#define MOTOR_MS1_PIN 12
+#define MOTOR_MS2_PIN 14
+#define MOTOR_MS3_PIN 27
+#define MOTOR_RST_PIN 26
+#define MOTOR_SLP_PIN 25
+
+#define DIRECTION_PIN 32
+#define STEP_PIN 33
 #define MOTOR_SPEED 2000
 
 using namespace std;
@@ -54,16 +60,16 @@ void motor(float new_ht){
     if(currentHeight == new_ht){
         return; // if no height change
     }
+    // TAKE MOTOR OUT OF SLEEP MODE
+    digitalWrite(MOTOR_SLP_PIN, HIGH);
+    delay(10);
 
     float step = 9.69; // 3150(.01) / 3.25 --> 3.25 in. rise
     float dist = abs(currentHeight - new_ht) / .01;
     int spin_steps = int(dist * step);
-
-
     
     Serial.println("Spinning...");
-    Serial.println(spin_steps);
-    Serial.println(dist * step);
+    Serial.printf("Spin steps: %d\n", spin_steps);
     digitalWrite(DIRECTION_PIN, currentHeight > new_ht);
 
     for(int i = 0; i < spin_steps; i++){
@@ -75,7 +81,9 @@ void motor(float new_ht){
     Serial.println("Done Spinning...");
 
     currentHeight = new_ht;
-  
+
+    // MOTOR BACK IN SLEEP MODE
+    digitalWrite(MOTOR_SLP_PIN, LOW);
 }
 
 vector<uint8_t> scanI2C(){
@@ -428,34 +436,36 @@ void getGrid(AsyncWebServerRequest *request) {
     AsyncWebServerResponse *response = request->beginResponse(200, "application/json", jsonStr);
     response->addHeader("Access-Control-Allow-Origin", "*");
     request->send(response);
-    
-    // String gridString = "";
-    // for(vector<int>::size_type i = 0; i != lastPlacedGrid.size(); i++) {
-    //     gridString += lastPlacedGrid[i].toString() + "\n";
-    // }
-    
-    // Serial.println(gridString);
-    
-    // AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", gridString);
-    // response->addHeader("Access-Control-Allow-Origin", "*");
-    // request->send(response);
 }
 
 
 void setup() {
-    // DETERMINE MASTERSHIP FOR TESTING PURPOSES
-    pinMode(IS_MASTER_PIN, INPUT_PULLUP);
     delay(1000);
-    //isMaster = !digitalRead(IS_MASTER_PIN);
-    if(I2C_DEV_ADDR == 0x04){
-        isMaster = true;
-    }
+    // MOTOR ESP SIDE PINS
+    pinMode(MOTOR_EN_PIN, OUTPUT);
+    pinMode(MOTOR_MS1_PIN, OUTPUT);
+    pinMode(MOTOR_MS2_PIN, OUTPUT);
+    pinMode(MOTOR_MS3_PIN, OUTPUT);
+    pinMode(MOTOR_RST_PIN, OUTPUT);
+    pinMode(MOTOR_SLP_PIN, OUTPUT);
+    digitalWrite(MOTOR_EN_PIN, LOW);
+    digitalWrite(MOTOR_MS1_PIN, LOW);
+    digitalWrite(MOTOR_MS2_PIN, LOW);
+    digitalWrite(MOTOR_MS3_PIN, LOW);
+    digitalWrite(MOTOR_RST_PIN, HIGH);
+    digitalWrite(MOTOR_SLP_PIN, LOW);
+    
+    // MOTOR DIR AND STEP PINS
+    pinMode(DIRECTION_PIN, OUTPUT);
+    pinMode(STEP_PIN, OUTPUT);
+    
+    delay(1000);
 
     // BOTH SETUP
     Serial.begin(9600); 
     Serial.setDebugOutput(true);
     
-    if(true){
+    if(false){
     
     WiFi.begin(ssid, password);
 
@@ -512,14 +522,14 @@ void setup() {
     pinMode(EAST_PIN, INPUT_PULLDOWN);
     pinMode(SOUTH_PIN, INPUT_PULLDOWN);
     pinMode(WEST_PIN, INPUT_PULLDOWN);
-
-    // MOTOR DIR AND STEP PINS
-    pinMode(DIRECTION_PIN, OUTPUT);
-    pinMode(STEP_PIN, OUTPUT);
 }
 
 
 void loop() {
+    delay(1000);
+    motor(3.00);
+    delay(2000);
+    motor(0);
     unsigned long lastGridUpdate = millis();
     
     if(becomeSlaveMode){
